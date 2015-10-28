@@ -1,0 +1,187 @@
+#!/bin/bash
+#Script générique pour réaliser un backup d'une base de donnee MySQL
+#Susceptible d'etre ajouter dans une tache cron
+
+#Couleur affichage
+VERT="\\033[1;32m" 
+NORMAL="\\033[0;39m" 
+ROUGE="\\033[1;31m" 
+ROSE="\\033[1;35m" 
+BLEU="\\033[1;34m" 
+BLANC="\\033[0;02m" 
+BLANCLAIR="\\033[1;08m" 
+JAUNE="\\033[1;33m" 
+CYAN="\\033[1;36m"
+ 
+#Variables globales
+USER=""
+PWD=""
+HOST=""
+PORT=0000
+DATABASE=""
+DIRECTORY_DUMP=""
+NAME=""
+TARGET=""
+VERBOSE=0
+ 
+function usage(){
+  echo -e "Utilisation du script :"
+  echo -e "\tAfficher l'aide"
+  echo -e "-u\tNom de l'utilisateur de la database"
+  echo -e "-m\tMot de passe de l'utilisateur de la database"
+  echo -e "-h\tHote contenant la database a backuper"
+  echo -e "-p\tPort d'ecoute de la database (default: 3306)"
+  echo -e "-d\tNom de la database"
+  echo -e "-n\tNom du Backup (default: Nom de la database)"
+  echo -e "-f\tDossier du backup si l'on ne désire pas un DUMP distant"
+  echo -e "-t\tChemin de sauvegarde de l hote distant"
+  echo -e "-v\tMode verbeux"
+  echo -e "\nExemple utilisation"
+  echo -e "\n#Si l'on veut un DUMP distant"
+  echo -e "script_backup_mysql -u glpi_user -m glpi -h 192.168.1.1 -d glpinew -n glpi-backup -t root@192.168.1.1:/mnt/backup_server/backup_mysql/glpinew/"
+  echo -e "\n#Si l'on veut un DUMP local"
+  echo -e "script_backup_mysql -u glpi_user -m glpi -h 192.168.1.1 -d glpinew -n glpi-backup -f /opt/backup/glpi/"
+  echo -e "\nIMPORTANT\nPensez à copier la clef public sur le serveur que vous desirer envoyer le backup ( Pour automatiser la tache de backup)"
+  echo -e "[user@ordi ~]$ ssh-copy-id -i ~/.ssh/id_dsa.pub root@serveur-distant"
+  exit 0
+ 
+}
+ 
+function verbose(){
+	if [ $VERBOSE -eq 1 ]
+	then
+        	#Affichage de debug
+        	echo -e "$1"
+	fi
+}
+ 
+if [ $# -eq 0 ]
+then
+  usage
+fi
+ 
+ 
+while getopts u:m:vp:h:d:n:t:f: option
+do
+ case $option in
+  u)
+    USER=$OPTARG
+   ;;
+  m)
+   PWD=$OPTARG
+   ;;
+  h)
+   HOST=$OPTARG
+   ;;
+  p)
+   PORT=$OPTARG
+   ;;
+  d)
+   DATABASE=$OPTARG
+   ;;
+  n)
+   NAME=$OPTARG
+   ;;
+  f)
+   DIRECTORY_DUMP=$OPTARG
+   ;;
+  t)
+   TARGET=$OPTARG
+   ;;
+  v)
+   VERBOSE=1
+    ;;
+  *)
+    usage
+    ;;
+ esac
+done
+ 
+#Changement du numero de port
+#Si pas precise alors port = 3306
+if [ $PORT -eq 0000 ]
+then
+      PORT=3306
+fi
+ 
+#Assignation du fichier de backup et generation de la date
+if [ -z $NAME ]
+then
+	DATE=`date +"%Y"-"%m"-"%d"`
+	NAME_FILE=${DATABASE}-${DATE}.bck
+else
+	DATE=`date +"%Y"-"%m"-"%d"`
+	NAME_FILE=${NAME}-${DATE}.bck
+fi
+
+#Affichage Parametre et Requetes selon les parametres envoye
+if [ -z $TARGET ]
+then
+	#Si pas de TARGET et pas de dossier de destination renseigne, dossier du DUMP = /tmp
+	if [ -z $DIRECTORY_DUMP ]
+	then
+		verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : /tmp"
+ 		verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
+	else
+		verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $DIRECTORY_DUMP"
+                verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > $DIRECTORY_DUMP$NAME_FILE"
+	fi
+else
+	verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $TARGET"
+ 
+        verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
+fi
+ 
+#Dump de la database
+if [ -z $TARGET ]
+then
+	#Si pas de TARGET et que l'on a pas de determiner le dossier de destination, le DUMP est dans /tmp
+	if [ -z $DIRECTORY_DUMP ]
+	then
+		mysqldump --lock-tables -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE
+	else
+		mysqldump --lock-tables -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > $DIRECTORY_DUMP$NAME_FILE
+	fi
+else
+	mysqldump --lock-tables -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE
+fi
+
+if [ $? != 0 ]
+then
+	verbose "Dump Database \t\t\t$ROUGE[KO]$NORMAL"
+else
+	verbose "Dump Database \t\t\t$VERT[OK]$NORMAL"
+fi
+ 
+#Copie du  dump vers le serveur renseigne en parametre
+#Si pas de TARGET, on ne lance pas la commande scp
+if [ -z $TARGET ]
+then
+	verbose "$VERT\nPas de copie distante$NORMAL"
+else
+	verbose "\nCommande Transfert : scp /tmp/$NAME_FILE $TARGET"
+	scp /tmp/$NAME_FILE $TARGET > /dev/null 2>&1
+ 
+	if [ $? != 0 ]
+	then
+        	verbose "Transfert Dump \t\t\t$ROUGE[KO]$NORMAL"
+	else
+        	verbose "Transfert Dump \t\t\t$VERT[OK]$NORMAL"
+	fi
+fi
+ 
+#Suppresion du dump local
+#Si pas de TARGET, on ne supprime pas le DUMP
+if [ -z $TARGET ]
+then
+	verbose "$VERT\nPas de Suppression du DUMP local"
+else
+	rm -f /tmp/$NAME_FILE
+
+	if [ $? != 0 ]
+	then
+        	verbose "Suppression Dump local \t\t$ROUGE[KO]$NORMAL"
+	else
+        	verbose "Suppression Dump local \t\t$VERT[OK]$NORMAL"
+	fi
+fi
