@@ -1,7 +1,7 @@
 # script_backup_mysql
 
 ## Description
-Ce script permet de sauvegarder une base de donnée MySQL et de spécifié si l'on
+Ce script permet de sauvegarder une base de donnée MySQL et de spécifier si l'on
 désire transférer le DUMP en local ou sur un serveur distant
 
 ## Utilisation
@@ -27,19 +27,19 @@ Utilisation du script :
 
 -v Mode verbeux
 
-*******
-Example
-*******
+##Example
 
 Si l'on veut un DUMP distant
 
+```sh
 script_backup_mysql -u glpi_user -m glpi -h localhost -d glpinew -n glpi-backup -t root@192.168.1.1:/mnt/backup_server/backup_mysql/glpinew/
-
+```
 
 Si l'on veut un DUMP local
 
+```sh
 script_backup_mysql -u glpi_user -m glpi -h localhost -d glpinew -n glpi-backup -f /opt/backup/glpi/"
-
+```
 
 *********
 IMPORTANT
