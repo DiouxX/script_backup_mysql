@@ -23,7 +23,8 @@ DIRECTORY_DUMP=""
 NAME=""
 TARGET=""
 PORTSSH=22
-VERBOSE=0
+VERBOSE=false
+DATE=`date +"%Y"-"%m"-"%d"`
  
 function usage(){
   echo -e "Utilisation du script :"
@@ -48,13 +49,22 @@ function usage(){
   exit 0
  
 }
- 
+
+#Fonction pour afficher le debug
+#$1 = 0 ou 1 ( 1 pour afficher l'heure dans le message de debug"
+#$2 = Message à afficher
 function verbose(){
-	if [ $VERBOSE -eq 1 ]
+	if $VERBOSE;
 	then
-        	#Affichage de debug
-        	echo -e "$1"
-	fi
+		if [ $1 -eq 1 ]
+		then
+			#Affichage de debug
+        	horodate=`date +"\n%d"/"%m"/"%Y"-"%H":"%M":"%S -- "`
+        	echo -e "$horodate$2"
+        else
+			echo -e "$2"
+		fi;
+	fi;
 }
  
 if [ $# -eq 0 ]
@@ -94,7 +104,7 @@ do
    PORTSSH=$OPTARG
    ;;
   v)
-   VERBOSE=1
+   VERBOSE=true
     ;;
   *)
     usage
@@ -112,10 +122,8 @@ fi
 #Assignation du fichier de backup et generation de la date
 if [ -z $NAME ]
 then
-	DATE=`date +"%Y"-"%m"-"%d"`
 	NAME_FILE=${DATABASE}-${DATE}.bck
 else
-	DATE=`date +"%Y"-"%m"-"%d"`
 	NAME_FILE=${NAME}-${DATE}.bck
 fi
 
@@ -125,15 +133,15 @@ then
 	#Si pas de TARGET et pas de dossier de destination renseigne, dossier du DUMP = /tmp
 	if [ -z $DIRECTORY_DUMP ]
 	then
-		verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : /tmp"
- 		verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
+		verbose 1 "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : /tmp"
+ 		verbose 0 "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
 	else
-		verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $DIRECTORY_DUMP"
-        verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > $DIRECTORY_DUMP$NAME_FILE"
+		verbose 1 "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $DIRECTORY_DUMP"
+        verbose 0 "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > $DIRECTORY_DUMP$NAME_FILE"
 	fi
 else
-	verbose "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $TARGET\n\tPort SSH : $PORTSSH"
-    verbose "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
+	verbose 1 "\nListing des parametres :\n\tUser : $USER\n\tMot de passe : $PWD\n\tHote : $HOST\n\tPort : $PORT\n\tDatabase : $DATABASE\n\tNom : $NAME_FILE\n\tDestination : $TARGET\n\tPort SSH : $PORTSSH"
+    verbose 0 "\nRequete SQL : mysqldump -h $HOST -P $PORT -u $USER -p$PWD $DATABASE > /tmp/$NAME_FILE"
 fi
  
 #Dump de la database
@@ -152,25 +160,25 @@ fi
 
 if [ $? != 0 ]
 then
-	verbose "Dump Database \t\t\t$ROUGE[KO]$NORMAL"
+	verbose 1 "Dump Database \t\t\t$ROUGE[KO]$NORMAL"
 else
-	verbose "Dump Database \t\t\t$VERT[OK]$NORMAL"
+	verbose 1 "Dump Database \t\t\t$VERT[OK]$NORMAL"
 fi
  
 #Copie du  dump vers le serveur renseigne en parametre
 #Si pas de TARGET, on ne lance pas la commande scp
 if [ -z $TARGET ]
 then
-	verbose "$VERT\nPas de copie distante$NORMAL"
+	verbose 0 "$VERT\nPas de copie distante$NORMAL"
 else
-	verbose "\nCommande Transfert : scp /tmp/$NAME_FILE $TARGET"
+	verbose 1 "Commande Transfert : scp /tmp/$NAME_FILE $TARGET"
 	scp -P $PORTSSH /tmp/$NAME_FILE $TARGET > /dev/null 2>&1
  
 	if [ $? != 0 ]
 	then
-        	verbose "Transfert Dump \t\t\t$ROUGE[KO]$NORMAL"
+        	verbose 1 "Transfert Dump \t\t\t$ROUGE[KO]$NORMAL"
 	else
-        	verbose "Transfert Dump \t\t\t$VERT[OK]$NORMAL"
+        	verbose 1 "Transfert Dump \t\t\t$VERT[OK]$NORMAL"
 	fi
 fi
  
@@ -178,14 +186,14 @@ fi
 #Si pas de TARGET, on ne supprime pas le DUMP
 if [ -z $TARGET ]
 then
-	verbose "$VERT\nPas de Suppression du DUMP local$NORMAL"
+	verbose 0 "$VERT\nPas de Suppression du DUMP local$NORMAL"
 else
 	rm -f /tmp/$NAME_FILE
 
 	if [ $? != 0 ]
 	then
-        	verbose "Suppression Dump local \t\t$ROUGE[KO]$NORMAL"
+        	verbose 1 "Suppression Dump local \t\t$ROUGE[KO]$NORMAL"
 	else
-        	verbose "Suppression Dump local \t\t$VERT[OK]$NORMAL"
+        	verbose 1 "Suppression Dump local \t\t$VERT[OK]$NORMAL"
 	fi
 fi
