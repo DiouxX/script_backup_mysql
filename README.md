@@ -25,6 +25,8 @@ Utilisation du script :
 
 -t Chemin de sauvegarde de l hote distant
 
+-P Port SSH de l hote distant (default : 22)
+
 -v Mode verbeux
 
 ##Example
