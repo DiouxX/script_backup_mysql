@@ -27,6 +27,8 @@ Utilisation du script :
 
 -P Port SSH de l hote distant (default : 22)
 
+-k Garder la sauvegarde en local aussi si l'option de transfert est activée
+
 -v Mode verbeux
 
 ##Example
